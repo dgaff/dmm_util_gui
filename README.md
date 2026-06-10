@@ -1,4 +1,72 @@
-# dmm_util
+# DMM Utility GUI
+
+This project started from the forked `dmm_util` in this repo. I asked Claude Fable (Mythos with cyber/bio protections) to build a nice GUI around the DMM meter commands
+because there's no Fluke Connect Mac app. This app blows Fluke Connect away. It's
+engineer-centric, so no frills on the UI, but it exposes everything in the meter
+protocol we could find. If you're curious about how I started Claude on the work,
+read the prd.md file. Claude also produced a summary.md file of the work completed.
+I've only tested this on Mac, but since it uses the QT library, it should run on
+Windows, too. You'll need to build your own binary (see the packaging folder) if
+you want a self-contained app rather than running from source.
+
+**Live View** — big live readout, rolling plot, and session recording at a
+  configurable sample rate with optional auto-stop duration; save sessions as CSV.
+
+<img src="images/live_view.png" width="600">
+
+**Memory View** — list everything stored on the meter (recordings, min/max, peak,
+  saved measurements), download recordings with progress/cancel, plot
+  primary/min/max, export any item to CSV, and delete all memory (undocumented command).
+
+<img src="images/memory_view.png" width="600">
+
+**Meter View** — identity and configuration, sync the meter clock to the Mac,
+  edit owner info (company/contact/operator/site) and the 8 save-name slots,
+  and send the DS/RMP/RI reset commands (with confirmation).
+
+<img src="images/meter_settings.png" width="600">
+
+**Console** — send any protocol command raw, with a picker and tooltips for
+  every known command (documented and reverse engineered); binary responses
+  are shown as a hex dump.
+
+<img src="images/console_view.png" width="600">
+
+Note that aettings (port, auto-connect, sample interval, window layout) persist between
+launches. Tooltips throughout explain what each control sends to the meter.
+
+## Running It
+
+```sh
+python3 -m venv venv                      # once, if you don't have the venv
+venv/bin/pip install -r requirements.txt  # once
+venv/bin/python -m dmm_gui
+```
+
+Pick the IR cable's port (it shows up as `/dev/cu.usbserial-…`, FTDI ports are
+listed first), press **Connect**, and check *Connect at launch* if you want the
+app to reconnect automatically next time.
+
+## Building a Mac app bundle
+
+```sh
+venv/bin/pip install pyinstaller   # once
+packaging/build_app.sh
+```
+
+This regenerates the app icon and produces `dist/DMM Utility.app`
+(ad-hoc signed); drag it to /Applications to install. The bundled app and
+the run-from-source version share the same saved settings.
+
+## Testing
+(no meter needed — runs against a simulated Fluke 289):
+
+```sh
+venv/bin/python tests/test_protocol.py
+QT_QPA_PLATFORM=offscreen venv/bin/python tests/test_gui.py
+```
+
+## Original docs from the forked CLI dmm_util repo
 dmm_util is a utility for interacting with Fluke 289 and 287 Series multimeters.
 You can:
 - download saved measurements
@@ -142,9 +210,8 @@ pyserial module is needed.
 Install it this way  
 `python -m pip install pyserial`
 
-
 **Copyright**
 
 Copyright © 2011 Fredrik Valeur.  
-Copyright © 2017-2022 N0ury.
-
+Copyright © 2017-2022 N0ury.  
+Copyright © 2026 Doug Gaff.

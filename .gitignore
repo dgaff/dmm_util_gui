@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+# PyInstaller build artifacts
+build/
+dist/
+packaging/*.spec
+packaging/icon.icns
+packaging/icon.iconset/

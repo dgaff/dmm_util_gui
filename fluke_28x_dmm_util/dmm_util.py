@@ -8,7 +8,7 @@ import sys
 import datetime
 import calendar
 import argparse
-import fluke_28x_dmm_util
+import fluke_28x_dmm_util # Why is this needed?
 import binascii
 
 
