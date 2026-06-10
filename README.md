@@ -32,7 +32,7 @@ you want a self-contained app rather than running from source.
 
 <img src="images/console_view.png" width="800">
 
-Note that aettings (port, auto-connect, sample interval, window layout) persist between
+Note that settings (port, auto-connect, sample interval, window layout) persist between
 launches. Tooltips throughout explain what each control sends to the meter.
 
 ## Running It
