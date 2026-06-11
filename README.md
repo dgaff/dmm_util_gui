@@ -38,35 +38,35 @@ I'll get it added to this app.
   configurable sample rate with optional auto-stop duration; save sessions as CSV.
 
 <img src="images/live_view.png" width="800">
-<br><br>
+<br>
 
 **Screen View** - live screen capture of the DMM screen itself. Sorry, there's no
 control of the screen yet. If you know of any undocumented commands to allow remote
 meter control, please get in touch with me!
 
 <img src="images/screen_view.png" width="400">
-<br><br>
+<br>
 
 **Memory View** — list everything stored on the meter (recordings, min/max, peak,
   saved measurements), download recordings with progress/cancel, plot
   primary/min/max, export any item to CSV, and delete all memory (undocumented command).
 
 <img src="images/memory_view.png" width="800">
-<br><br>
+<br>
 
 **Meter View** — identity and configuration, sync the meter clock to the Mac,
   edit owner info (company/contact/operator/site) and the 8 save-name slots,
   and send the DS/RMP/RI reset commands (with confirmation).
 
 <img src="images/meter_settings.png" width="800">
-<br><br>
+<br>
 
 **Console** — send any protocol command raw, with a picker and tooltips for
   every known command (documented and reverse engineered); binary responses
   are shown as a hex dump.
 
 <img src="images/console_view.png" width="800">
-<br><br>
+<br>
 
 Note that settings (port, auto-connect, sample interval, window layout) persist between
 launches. Tooltips throughout explain what each control sends to the meter.
