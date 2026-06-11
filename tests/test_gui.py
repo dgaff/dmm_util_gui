@@ -70,6 +70,28 @@ def main():
     print('PASS live readout:', win.live_view.value_label.text(),
           '|', win.live_view.function_label.text())
 
+    # screen tab: polls only while visible, pause/play, export
+    assert win.screen_view.frame_count == 0, 'screen polled while tab hidden'
+    win.sidebar.setCurrentRow(1)   # Screen
+    wait_for(lambda: win.screen_view.frame_count >= 2, what='screen frames')
+    assert win.screen_view.image is not None
+    assert win.screen_view.export_btn.isEnabled()
+    win.screen_view.play_btn.click()           # pause
+    spin(300)                                  # drain in-flight frames
+    n = win.screen_view.frame_count
+    spin(500)
+    assert win.screen_view.frame_count == n, 'frames kept arriving while paused'
+    win.screen_view.play_btn.click()           # play
+    wait_for(lambda: win.screen_view.frame_count > n, what='screen resume')
+    png = tempfile.mktemp(suffix='.png')
+    assert win.screen_view.image.save(png)
+    win.sidebar.setCurrentRow(0)               # leaving the tab stops polling
+    spin(300)
+    n = win.screen_view.frame_count
+    spin(500)
+    assert win.screen_view.frame_count == n, 'frames kept arriving while hidden'
+    print(f'PASS screen tab: {n} frames, pause/resume/export ok')
+
     # setup view auto-populated on connect
     wait_for(lambda: win.setup_view.info_labels['Model'].text() == 'FLUKE 289',
              what='setup info')

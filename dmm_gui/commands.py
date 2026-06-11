@@ -40,6 +40,12 @@ COMMANDS = [
      'summary': 'Query displayed data (binary)',
      'detail': 'Binary form of QDDA: functions, range, mode and all current\n'
                'readings with timestamps. Used for live monitoring.'},
+    {'template': 'qlcdbm <offset>', 'documented': False, 'binary': True,
+     'summary': 'Query LCD bitmap',
+     'detail': 'Returns a chunk of the current LCD screen image starting at\n'
+               '<offset>. Chunks concatenate into a gzip-compressed bitmap;\n'
+               'repeat with the next offset until the payload is empty.\n'
+               'Used by the Screen tab for live screen capture.'},
     {'template': 'qsls', 'documented': False, 'binary': False,
      'summary': 'Query saved list summary',
      'detail': 'Returns the number of stored recordings, min/max sessions,\n'

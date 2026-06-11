@@ -17,13 +17,18 @@ These were confirmed up front before building:
 
 ## What was built
 
-A sidebar-navigation main window with four views:
+A sidebar-navigation main window with five views:
 
 - **Live** ([dmm_gui/live_view.py](dmm_gui/live_view.py)) — large readout
   (value, unit, function, mode, range), rolling time-series plot, Record/Stop
   with configurable sample interval (0.1 s–1 hr) and optional auto-stop
   duration, CSV export of recorded sessions. Overload readings display as
   "OL" and become gaps in the plot rather than 1e37 spikes.
+- **Screen** ([dmm_gui/screen_view.py](dmm_gui/screen_view.py)) — live
+  capture of the meter LCD via the undocumented `qlcdbm` command (chunked,
+  gzipped bitmap; protocol from vsilves' fluke-live.py on eevblog), with
+  Pause/Play and PNG export. Captures only while the tab is visible so
+  other views aren't slowed by the ~0.5 s screen transfers.
 - **Memory** ([dmm_gui/memory_view.py](dmm_gui/memory_view.py)) — tree of
   everything stored on the meter (recordings, min/max sessions, peak
   sessions, saved measurements); downloads recordings sample-by-sample with
@@ -55,6 +60,7 @@ dmm_gui/
   commands.py      command catalog for the Console (tooltips, doc status)
   app.py           MainWindow, connection bar, sidebar, wiring, QSettings
   live_view.py     Live readout / plot / recording
+  screen_view.py   live LCD capture (qlcdbm) with pause and PNG export
   memory_view.py   stored-data browser / download / export
   setup_view.py    meter identity, properties, names, resets
   console_view.py  raw command console with hex dump

@@ -20,6 +20,7 @@ class Requests(QObject):
     open_port = Signal(str, float)
     close_port = Signal()
     set_polling = Signal(bool, float)     # enabled, interval seconds
+    set_screen_polling = Signal(bool)     # live LCD capture on/off
     refresh_inventory = Signal()
     download_recording = Signal(int, str)  # 0-based index, name
     fetch_session = Signal(str, int)       # 'minmax'|'peak', 0-based index
@@ -38,6 +39,8 @@ class DmmWorker(QObject):
     disconnected = Signal()
     live_reading = Signal(float, dict)     # host timestamp, qddb dict
     live_error = Signal(str)
+    screen_frame = Signal(object)          # decompressed LCD image bytes
+    screen_error = Signal(str)
     inventory_ready = Signal(dict)
     download_progress = Signal(int, int)
     recording_ready = Signal(dict)         # {'index':..., 'info':..., 'samples':[...]}
@@ -49,6 +52,7 @@ class DmmWorker(QObject):
     op_failed = Signal(str)
 
     MAX_POLL_FAILURES = 5
+    SCREEN_INTERVAL_MS = 250   # capture itself takes ~0.5 s; this just paces
 
     def __init__(self):
         super().__init__()
@@ -57,12 +61,15 @@ class DmmWorker(QObject):
         self._poll_interval = 1.0
         self._poll_enabled = False
         self._poll_failures = 0
+        self._screen_timer = None
+        self._screen_enabled = False
         self.cancel_requested = False      # set directly from the GUI thread
 
     def bind(self, req: Requests):
         req.open_port.connect(self.open_port)
         req.close_port.connect(self.close_port)
         req.set_polling.connect(self.set_polling)
+        req.set_screen_polling.connect(self.set_screen_polling)
         req.refresh_inventory.connect(self.refresh_inventory)
         req.download_recording.connect(self.download_recording)
         req.fetch_session.connect(self.fetch_session)
@@ -81,12 +88,19 @@ class DmmWorker(QObject):
             self._timer = QTimer(self)
             self._timer.timeout.connect(self._poll_once)
 
+    def _ensure_screen_timer(self):
+        if self._screen_timer is None:
+            self._screen_timer = QTimer(self)
+            self._screen_timer.timeout.connect(self._capture_screen)
+
     def _fail(self, what, err):
         self.op_failed.emit(f'{what}: {err}')
 
     def _serial_lost(self, err):
         if self._timer:
             self._timer.stop()
+        if self._screen_timer:
+            self._screen_timer.stop()
         self.dmm.close()
         self.disconnected.emit()
         self.op_failed.emit(f'Connection lost: {err}')
@@ -106,11 +120,16 @@ class DmmWorker(QObject):
         self._ensure_timer()
         if self._poll_enabled:
             self._timer.start(int(self._poll_interval * 1000))
+        self._ensure_screen_timer()
+        if self._screen_enabled:
+            self._screen_timer.start(self.SCREEN_INTERVAL_MS)
 
     @Slot()
     def close_port(self):
         if self._timer:
             self._timer.stop()
+        if self._screen_timer:
+            self._screen_timer.stop()
         self.dmm.close()
         self.disconnected.emit()
 
@@ -144,6 +163,29 @@ class DmmWorker(QObject):
             return
         self._poll_failures = 0
         self.live_reading.emit(time.time(), data)
+
+    @Slot(bool)
+    def set_screen_polling(self, enabled):
+        self._screen_enabled = enabled
+        self._ensure_screen_timer()
+        if enabled and self.dmm.is_connected:
+            self._screen_timer.start(self.SCREEN_INTERVAL_MS)
+            self._capture_screen()
+        else:
+            self._screen_timer.stop()
+
+    def _capture_screen(self):
+        if not self.dmm.is_connected:
+            return
+        try:
+            image = self.dmm.qlcdbm()
+        except (serial.SerialException, OSError) as err:
+            self._serial_lost(err)
+            return
+        except Exception as err:
+            self.screen_error.emit(str(err))
+            return
+        self.screen_frame.emit(image)
 
     @Slot()
     def refresh_inventory(self):

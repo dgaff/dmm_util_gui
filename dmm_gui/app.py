@@ -17,6 +17,7 @@ from PySide6.QtCore import QThread
 from .console_view import ConsoleView
 from .live_view import LiveView
 from .memory_view import MemoryView
+from .screen_view import ScreenView
 from .setup_view import SetupView
 from .worker import DmmWorker, Requests
 
@@ -132,6 +133,7 @@ class MainWindow(QMainWindow):
             ' color: palette(highlighted-text); }')
         for label, tip in [
             ('📈  Live', 'Live readings from the meter, with recording to CSV'),
+            ('🖥  Screen', 'Live capture of the meter LCD screen'),
             ('💾  Memory', 'Recordings and measurements stored in the meter'),
             ('🔧  Meter', 'Meter identity, clock, owner info and save names'),
             ('⌨️  Console', 'Send raw protocol commands'),
@@ -142,10 +144,12 @@ class MainWindow(QMainWindow):
 
         self.pages = QStackedWidget()
         self.live_view = LiveView(self.settings)
+        self.screen_view = ScreenView(self.settings)
         self.memory_view = MemoryView(self.settings)
         self.setup_view = SetupView()
         self.console_view = ConsoleView()
-        for page in (self.live_view, self.memory_view, self.setup_view, self.console_view):
+        for page in (self.live_view, self.screen_view, self.memory_view,
+                     self.setup_view, self.console_view):
             self.pages.addWidget(page)
 
         self.sidebar.currentRowChanged.connect(self.pages.setCurrentIndex)
@@ -173,6 +177,11 @@ class MainWindow(QMainWindow):
         w.live_reading.connect(self.live_view.on_live_reading)
         self.live_view.poll_interval_changed.connect(
             lambda s: self.req.set_polling.emit(self.connected, s))
+
+        # Screen
+        self.screen_view.request_screen_polling.connect(self.req.set_screen_polling)
+        w.screen_frame.connect(self.screen_view.on_frame)
+        w.screen_error.connect(self.screen_view.on_error)
 
         # Memory
         self.memory_view.request_refresh.connect(self.on_refresh_inventory)
@@ -253,6 +262,7 @@ class MainWindow(QMainWindow):
 
     def _set_views_connected(self, connected):
         self.live_view.set_connected(connected)
+        self.screen_view.set_connected(connected)
         self.memory_view.set_connected(connected)
         self.setup_view.set_connected(connected)
         self.console_view.set_connected(connected)

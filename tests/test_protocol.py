@@ -118,6 +118,14 @@ def main():
     assert qm['unit'] == 'VDC'
     print('PASS qm:', qm)
 
+    # screenshot: chunked, gzipped LCD bitmap
+    fake = dmm.ser
+    assert len(fake.screen_gz) > fake.screen_chunk, 'fake screen must span chunks'
+    shot = dmm.qlcdbm()
+    assert shot == fake.screen_bmp
+    print(f'PASS qlcdbm screenshot: {len(shot)} bytes '
+          f'({len(fake.screen_gz)} gz over {fake.screen_chunk}-byte chunks)')
+
     # regression: ACK arrives before the payload (real meter timing)
     protocol.serial.Serial = SlowAckSerial
     slow = Fluke28x()

@@ -4,6 +4,7 @@ FakeSerial mimics the subset of pyserial's API the app uses and answers
 protocol commands the way a real meter does (binary framing included).
 """
 
+import gzip
 import struct
 import time
 
@@ -43,6 +44,20 @@ def enc_reading(reading_id, value, unit=0, mult=0, decimals=4, digits=5,
             enc_u16(state) + enc_u16(attribute) + enc_double(ts))
 
 
+def make_bmp(width=32, height=32):
+    """A 24-bit BMP with a noisy pattern so its gzip stream spans several
+    qlcdbm chunks."""
+    rows = b''
+    for y in range(height):
+        row = bytes((x * 7 + y * 13 + c * 29) % 251
+                    for x in range(width) for c in range(3))
+        rows += row + b'\x00' * ((4 - len(row) % 4) % 4)
+    header = b'BM' + struct.pack('<IHHI', 14 + 40 + len(rows), 0, 0, 54)
+    info = struct.pack('<IiiHHIIiiII', 40, width, height, 1, 24, 0,
+                       len(rows), 2835, 2835, 0, 0)
+    return header + info + rows
+
+
 class FakeSerial:
     """Drop-in stand-in for serial.Serial connected to a fake Fluke 289."""
 
@@ -62,6 +77,9 @@ class FakeSerial:
         self.live_value = 1.2345
         self.num_rec_samples = 5
         self.counts = {'RECORDED': 1, 'MIN_MAX': 1, 'PEAK': 1, 'MEASUREMENT': 1}
+        self.screen_bmp = make_bmp()
+        self.screen_gz = gzip.compress(self.screen_bmp)
+        self.screen_chunk = 512
 
     # -- pyserial API ------------------------------------------------------
 
@@ -125,6 +143,10 @@ class FakeSerial:
             self._ascii(','.join(parts))
         elif low == 'qddb':
             self._binary(self._qddb())
+        elif low.startswith('qlcdbm '):
+            offset = int(cmd.split()[1])
+            chunk = self.screen_gz[offset:offset + self.screen_chunk]
+            self._rx += b'0\r' + str(offset).encode() + b' #0' + chunk + b'\r'
         elif low == 'qsls':
             c = self.counts
             self._ascii(f"{c['RECORDED']},{c['MIN_MAX']},{c['PEAK']},{c['MEASUREMENT']}")

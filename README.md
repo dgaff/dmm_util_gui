@@ -14,6 +14,12 @@ you want a self-contained app rather than running from source.
 
 <img src="images/live_view.png" width="800">
 
+**Screen View** - live screen capture of the DMM screen itself. Sorry, there's no
+control of the screen yet. If you know of any undocumented commands to allow remote
+meter control, please get in touch with me!
+
+<img src="images/screen_view.png" width="400">
+
 **Memory View** — list everything stored on the meter (recordings, min/max, peak,
   saved measurements), download recordings with progress/cancel, plot
   primary/min/max, export any item to CSV, and delete all memory (undocumented command).

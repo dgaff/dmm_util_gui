@@ -9,6 +9,7 @@ ASCII (comma separated) or binary (prefixed with '#0') data.
 
 import calendar
 import datetime
+import gzip
 import struct
 import threading
 import time
@@ -327,6 +328,39 @@ class Fluke28x:
         res = self.command('QM')
         return {'value': float(res[0]), 'unit': res[1],
                 'state': res[2], 'attribute': res[3]}
+
+    def qlcdbm(self):
+        """Capture the meter's LCD screen. The gzipped image is served in
+        chunks: 'qlcdbm <offset>' answers '<offset> #0<bytes>' until a
+        request at the end returns an empty payload. Returns the
+        decompressed image bytes (a bitmap file QImage can load)."""
+        if not self.is_connected:
+            raise DmmError('Not connected')
+        chunks = []
+        offset = 0
+        while True:
+            with self._lock:
+                data = self._transact(f'qlcdbm {offset}')
+            status = chr(data[0])
+            if status != '0':
+                raise DmmCommandError('qlcdbm', status)
+            body = data[2:]
+            if body.endswith(b'\r'):
+                body = body[:-1]
+            prefix = f'{offset} #0'.encode()
+            if not body.startswith(prefix):
+                break
+            payload = body[len(prefix):]
+            if not payload:
+                break
+            chunks.append(payload)
+            offset += len(payload)
+        if not chunks:
+            raise DmmError('Empty screenshot from meter')
+        try:
+            return gzip.decompress(b''.join(chunks))
+        except OSError as err:
+            raise DmmError(f'Bad screenshot data: {err}')
 
     # -- stored data ------------------------------------------------------------
 
