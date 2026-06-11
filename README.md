@@ -1,42 +1,72 @@
-# DMM Utility GUI
+# DMM Utility GUI for Fluke 289 Multimeter
 
-This project started from the forked `dmm_util` in this repo. I asked Claude Fable (Mythos with cyber/bio protections) to build a nice GUI around the DMM meter commands
-because there's no Fluke Connect Mac app. This app blows Fluke Connect away. It's
-engineer-centric, so no frills on the UI, but it exposes everything in the meter
-protocol we could find. If you're curious about how I started Claude on the work,
-read the prd.md file. Claude also produced a summary.md file of the work completed.
-I've only tested this on Mac, but since it uses the QT library, it should run on
+This project started from the forked `dmm_util` in this repo, but it's moved pretty far
+beyond that code, so I won't be keeping the fork in sync. I asked Claude Fable
+(Mythos with cyber/bio protections) to build a nice GUI around the DMM meter commands
+for the Fluke 287/289 Meter because there's no Fluke Connect Mac app. If you're
+curious about how I started Claude on the work, read the prd.md file and see
+Claude's summary.md file of the work completed.
+
+This app goes way beyond Fluke Connect in functionality. It's engineer-centric,
+so no frills on the UI, but it exposes everything in the meter protocol we could
+find, including some undocumented stuff. There's even a live screen
+image view of the meter, thanks to some code I found on eevblog from user vsilves.
+See fluke-live.py for their original code. That file isn't used in the app and can
+be run standalone if you only want a screen capture view.
+
+I've only tested this on the 289 meter running firmware version 1.71.
+I assume the documented commands are the same with 287. I'm not sure about the
+undocumented ones, notability the delete memory options and the screen capture.
+I've also only tested this on Mac, but since it uses the QT library, it should run on
 Windows, too. You'll need to build your own binary (see the packaging folder) if
 you want a self-contained app rather than running from source.
+
+Note: This requires the optical-to-serial cable from Fluke, obviously. Fluke
+also sells the ir3000FC which is optical-to-BLE. That interface only works with the
+Fluke Connect app on iOS/Android. Sadly the mobile app only shows live readings. I
+didn't find that very useful, and I regret buying the BLE interface. But since I
+have it, I intend to eventually add BLE support to this app. However, like
+the mobile app, my app will only support live view over BLE. It appears that Fluke
+didn't implement memory download for the BLE adapter and mobile app. Further,
+no one (that I could find) has reverse-engineered the entire binary protocol
+for the BLE interface. If you have the information, please contact me, and 
+I'll get it added to this app.
+
+## Features
 
 **Live View** — big live readout, rolling plot, and session recording at a
   configurable sample rate with optional auto-stop duration; save sessions as CSV.
 
 <img src="images/live_view.png" width="800">
+<br><br>
 
 **Screen View** - live screen capture of the DMM screen itself. Sorry, there's no
 control of the screen yet. If you know of any undocumented commands to allow remote
 meter control, please get in touch with me!
 
 <img src="images/screen_view.png" width="400">
+<br><br>
 
 **Memory View** — list everything stored on the meter (recordings, min/max, peak,
   saved measurements), download recordings with progress/cancel, plot
   primary/min/max, export any item to CSV, and delete all memory (undocumented command).
 
 <img src="images/memory_view.png" width="800">
+<br><br>
 
 **Meter View** — identity and configuration, sync the meter clock to the Mac,
   edit owner info (company/contact/operator/site) and the 8 save-name slots,
   and send the DS/RMP/RI reset commands (with confirmation).
 
 <img src="images/meter_settings.png" width="800">
+<br><br>
 
 **Console** — send any protocol command raw, with a picker and tooltips for
   every known command (documented and reverse engineered); binary responses
   are shown as a hex dump.
 
 <img src="images/console_view.png" width="800">
+<br><br>
 
 Note that settings (port, auto-connect, sample interval, window layout) persist between
 launches. Tooltips throughout explain what each control sends to the meter.
@@ -218,6 +248,7 @@ Install it this way
 
 **Copyright**
 
-Copyright © 2011 Fredrik Valeur.  
-Copyright © 2017-2022 N0ury.  
-Copyright © 2026 Doug Gaff.
+Copyright © 2011 Fredrik Valeur. (Original CLI DMM utility)<br>
+Copyright © 2017-2022 N0ury. (Original CLI DMM utility)<br>
+Copyright © 2026 Doug Gaff.<br>
+Credit to vslives from eevblog for the DMM screen capture
