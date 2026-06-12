@@ -21,55 +21,109 @@ I've also only tested this on Mac, but since it uses the QT library, it should r
 Windows, too. You'll need to build your own binary (see the packaging folder) if
 you want a self-contained app rather than running from source.
 
-Note: This requires the optical-to-serial cable from Fluke, obviously. Fluke
-also sells the ir3000FC which is optical-to-BLE. That interface only works with the
-Fluke Connect app on iOS/Android. Sadly the mobile app only shows live readings. I
-didn't find that very useful, and I regret buying the BLE interface. But since I
-have it, I intend to eventually add BLE support to this app. However, like
-the mobile app, my app will only support live view over BLE. It appears that Fluke
-didn't implement memory download for the BLE adapter and mobile app. Further,
-no one (that I could find) has reverse-engineered the entire binary protocol
-for the BLE interface. If you have the information, please contact me, and 
-I'll get it added to this app.
+## Connection Methods
+
+Fluke sells two interfaces for this meter.
+
+1. Fluke IR189USB - an optical-to-USB interface for connecting to a laptop.
+2. Fluke IR3000FC - an optical-to-BLE interface for connecting to a phone.
+
+<img src="images/usb-interface.png" width="200">
+<img src="images/ble-interface.png" width="200">
+
+**Note: The USB interface provides MUCH more functionality than the BLE one.**
+Most of the functionality in this app relies on the USB interface,
+so that's the one to buy. The USB interface has a text
+command protocol with a mixture of text and binary responses. You can
+connect over your favorite terminal app and talk directly to the meter
+if you want. The PDF spec in this repo describes this interface.
+
+The BLE interface only supports live data from the meter. I didn't
+realize this, and I bought the BLE first. (Always read the reviews!) I
+was very disappointed when I ran FlukeConnect on my iPhone and
+discovered I couldn't download on-meter recorded data. But my mistake
+is your gain, because I added support for the BLE interface in this
+app, too.
+
+More tech details: The BLE interface doesn't seem to implement the text protocol that
+the USB interface does. Instead, it's a binary streaming interface
+that just broadcasts live updates from the meter in binary. While
+I was able to send text commands, it returned an error code on them except
+for the ID command. From searching online, it appears that no one
+has cracked this binary interface yet, or at least they're not
+sharing their work if they did. If you have more information
+about the binary protocol, please contact me. I'd love to implement
+it in this app.
+
+Anyway, Claude and I worked to decode the live BLE streaming data, so the live
+view screen works over a BLE connection. Everything else is disabled when you
+use BLE. But I suppose the benefit is that you can do your own data recording from
+your laptop using the BLE interface, so you don't have to be physically attached to the
+meter for that.
+
+**Note: As noted, the BLE protocol is undocumented. It's possible that there
+are bugs.** Please file an issue if you find something.
 
 ## Features
 
-**Live View** — big live readout, rolling plot, and session recording at a
-  configurable sample rate with optional auto-stop duration; save sessions as CSV.
+When you start the app, you must pick the port to connect to. Assuming
+you have the USB connector, you'll see the FT232R UART on /dev as shown
+in the image below. On Windows, you'll see COM ports instead.
 
-<img src="images/live_view.png" width="800">
-<br>
+If instead you want to find the BLE adapter, hit the refresh button and wait a few
+seconds. The scan has a 10s timeout, but if you have a ton of BLE devices in your house,
+you may need to increase the scan time. The status bar will tell you if it finds
+the BLE adapter. Again, I've only tested this on Mac, so I'm not sure if it
+works on Windows.
 
-**Screen View** - live screen capture of the DMM screen itself. Sorry, there's no
-control of the screen yet. If you know of any undocumented commands to allow remote
-meter control, please get in touch with me!
-
-<img src="images/screen_view.png" width="400">
-<br>
-
-**Memory View** — list everything stored on the meter (recordings, min/max, peak,
-  saved measurements), download recordings with progress/cancel, plot
-  primary/min/max, export any item to CSV, and delete all memory (undocumented command).
-
-<img src="images/memory_view.png" width="800">
-<br>
-
-**Meter View** — identity and configuration, sync the meter clock to the Mac,
-  edit owner info (company/contact/operator/site) and the 8 save-name slots,
-  and send the DS/RMP/RI reset commands (with confirmation).
-
-<img src="images/meter_settings.png" width="800">
-<br>
-
-**Console** — send any protocol command raw, with a picker and tooltips for
-  every known command (documented and reverse engineered); binary responses
-  are shown as a hex dump.
-
-<img src="images/console_view.png" width="800">
-<br>
+Once you've picked your connection, hit connect. If you're using the USB interface,
+all of the screens will be available to you. If you're using the BLE interface, you'll
+only have the live data screen.
 
 Note that settings (port, auto-connect, sample interval, window layout) persist between
 launches. Tooltips throughout explain what each control sends to the meter.
+
+<img src="images/meter_connect.png">
+
+### Live View
+
+This is a big live readout, a rolling plot, and session recording at a configurable
+sample rate with optional auto-stop duration. Allows you to save sessions as CSV.
+
+<img src="images/live_view.png" width="800">
+
+### Screen View
+
+This provides live screen capture of the DMM screen itself. Pretty cool, but sort
+of redundant. It could be cool if you could remotely control the meter, but if that works,
+it's not in the published protocol. Again, if you know of any undocumented commands, 
+please get in touch with me!
+
+<img src="images/screen_view.png" width="800">
+
+### Memory View
+
+This lists everything stored on the meter (recordings, min/max, peak, saved measurements),
+allows you to download recordings with progress/cancel, plots primary/min/max, exports any
+item to CSV, and allows you to delete all memory. Deleting memory is an undocumented command,
+and you can't just selectively delete one recording.
+
+<img src="images/memory_view.png" width="800">
+
+### Meter View
+
+This provides identity and configuration, syncing the meter clock to your laptop (super cool!),
+and editing stored owner info (company/contact/operator/site). You can edit the default 8 save-name slots,
+and send the DS/RMP/RI reset commands.
+
+<img src="images/meter_settings.png" width="800">
+
+### Console
+
+This is kind of a debug screen. You can send any protocol command raw, with a picker and tooltips for
+every known command (documented and reverse engineered). Binary responses are shown as a hex dump.
+
+<img src="images/console_view.png" width="800">
 
 ## Running It
 

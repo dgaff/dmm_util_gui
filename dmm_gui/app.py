@@ -14,6 +14,7 @@ from serial.tools import list_ports
 
 from PySide6.QtCore import QThread
 
+from .ble_worker import BleWorker, DEVICE_NAME as BLE_DEVICE_NAME
 from .console_view import ConsoleView
 from .live_view import LiveView
 from .memory_view import MemoryView
@@ -47,6 +48,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle('DMM Utility — Fluke 287/289')
         self.settings = QSettings('dmm_util_gui', 'DMM Utility')
         self.connected = False
+        self.conn_type = None              # 'serial' | 'ble' while connected
+        self._ble_autoconnect = None       # 'ble:<addr>' awaiting scan result
 
         self._build_worker()
         self._build_ui()
@@ -59,8 +62,13 @@ class MainWindow(QMainWindow):
             self.resize(1100, 720)
 
         self.refresh_ports()
-        if self.autoconnect_check.isChecked() and self.port_combo.currentData():
-            QTimer.singleShot(100, self.toggle_connect)
+        if self.autoconnect_check.isChecked():
+            saved = str(self.settings.value('port', '') or '')
+            if saved.startswith('ble:'):
+                self._ble_autoconnect = saved
+                self.scan_ble()
+            elif self.port_combo.currentData():
+                QTimer.singleShot(100, self.toggle_connect)
 
     # ------------------------------------------------------------------
 
@@ -73,6 +81,9 @@ class MainWindow(QMainWindow):
         # destroy the worker (and its poll timer) on its own thread at exit
         self.worker_thread.finished.connect(self.worker.deleteLater)
         self.worker_thread.start()
+
+        # BLE runs on its own asyncio thread inside BleWorker
+        self.ble = BleWorker()
 
     def _build_ui(self):
         central = QWidget()
@@ -88,15 +99,16 @@ class MainWindow(QMainWindow):
         bar_layout.addWidget(QLabel('Port:'))
         self.port_combo = QComboBox()
         self.port_combo.setMinimumWidth(280)
-        self.port_combo.setToolTip('Serial port of the USB IR cable.\n'
+        self.port_combo.setToolTip('Serial port of the USB IR cable, or a BLE adapter.\n'
                                    'The Fluke cable uses an FTDI chip and shows up as\n'
-                                   '/dev/cu.usbserial-XXXX.')
+                                   '/dev/cu.usbserial-XXXX; the ir3000FC BLE adapter\n'
+                                   f"advertises as '{BLE_DEVICE_NAME}'.")
         bar_layout.addWidget(self.port_combo)
 
         self.rescan_btn = QPushButton('⟳')
         self.rescan_btn.setFixedWidth(32)
-        self.rescan_btn.setToolTip('Rescan serial ports')
-        self.rescan_btn.clicked.connect(self.refresh_ports)
+        self.rescan_btn.setToolTip('Rescan serial ports and scan for BLE adapters (~5 s)')
+        self.rescan_btn.clicked.connect(self.refresh_all)
         bar_layout.addWidget(self.rescan_btn)
 
         self.connect_btn = QPushButton('Connect')
@@ -130,7 +142,8 @@ class MainWindow(QMainWindow):
             'QListWidget::item { padding: 10px 14px; border-radius: 6px; margin: 2px 8px;'
             ' color: palette(text); }'
             'QListWidget::item:selected { background: palette(highlight);'
-            ' color: palette(highlighted-text); }')
+            ' color: palette(highlighted-text); }'
+            'QListWidget::item:disabled { color: palette(mid); background: transparent; }')
         for label, tip in [
             ('📈  Live', 'Live readings from the meter, with recording to CSV'),
             ('🖥  Screen', 'Live capture of the meter LCD screen'),
@@ -172,6 +185,15 @@ class MainWindow(QMainWindow):
         w.op_done.connect(self.on_op_done)
         w.op_failed.connect(self.on_op_failed)
         w.live_error.connect(self.on_live_error)
+
+        # BLE (signals arrive from the asyncio thread; bound methods only)
+        b = self.ble
+        b.scan_finished.connect(self.on_ble_scan_finished)
+        b.scan_failed.connect(self.on_ble_scan_failed)
+        b.connected.connect(self.on_ble_connected)
+        b.connect_failed.connect(self.on_connect_failed)
+        b.disconnected.connect(self.on_ble_disconnected)
+        b.ble_reading.connect(self.live_view.on_ble_reading)
 
         # Live
         w.live_reading.connect(self.live_view.on_live_reading)
@@ -218,23 +240,67 @@ class MainWindow(QMainWindow):
             if idx >= 0:
                 self.port_combo.setCurrentIndex(idx)
         if self.port_combo.count() == 0:
-            self.port_combo.addItem('No serial ports found', None)
+            self.port_combo.addItem('No ports found', None)
+
+    def refresh_all(self):
+        self.refresh_ports()
+        self.scan_ble()
+
+    def scan_ble(self):
+        self.rescan_btn.setEnabled(False)
+        self.statusBar().showMessage(f"Scanning for '{BLE_DEVICE_NAME}' BLE adapters…")
+        self.ble.scan()
+
+    def on_ble_scan_finished(self, results):
+        self.rescan_btn.setEnabled(True)
+        for i in range(self.port_combo.count() - 1, -1, -1):
+            data = self.port_combo.itemData(i)
+            if isinstance(data, str) and data.startswith('ble:'):
+                self.port_combo.removeItem(i)
+        if results and self.port_combo.count() == 1 and self.port_combo.itemData(0) is None:
+            self.port_combo.clear()    # replace the "No ports found" stub
+        for name, address in results:
+            self.port_combo.addItem(f'BLE: {name} ({address[:8]}…)', f'ble:{address}')
+        self.statusBar().showMessage(
+            f"BLE scan: {len(results)} '{BLE_DEVICE_NAME}' adapter(s) found", 10000)
+
+        saved = str(self.settings.value('port', '') or '')
+        if saved.startswith('ble:') and not self.connected:
+            idx = self.port_combo.findData(saved)
+            if idx >= 0:
+                self.port_combo.setCurrentIndex(idx)
+        if self._ble_autoconnect:
+            pending, self._ble_autoconnect = self._ble_autoconnect, None
+            if self.port_combo.findData(pending) >= 0 and not self.connected:
+                self.toggle_connect()
+
+    def on_ble_scan_failed(self, err):
+        self.rescan_btn.setEnabled(True)
+        self._ble_autoconnect = None
+        self.statusBar().showMessage(f'BLE scan failed: {err}', 8000)
 
     def toggle_connect(self):
         if self.connected:
-            self.req.set_polling.emit(False, self.live_view.poll_interval())
-            self.req.close_port.emit()
+            if self.conn_type == 'ble':
+                self.ble.disconnect_device()
+            else:
+                self.req.set_polling.emit(False, self.live_view.poll_interval())
+                self.req.close_port.emit()
             return
         port = self.port_combo.currentData()
         if not port:
-            self.statusBar().showMessage('No serial port selected', 5000)
+            self.statusBar().showMessage('No port selected', 5000)
             return
         self.connect_btn.setEnabled(False)
         self.connect_btn.setText('Connecting…')
-        self.req.open_port.emit(port, DEFAULT_TIMEOUT)
+        if port.startswith('ble:'):
+            self.ble.connect_device(port[len('ble:'):])
+        else:
+            self.req.open_port.emit(port, DEFAULT_TIMEOUT)
 
     def on_connected(self, info):
         self.connected = True
+        self.conn_type = 'serial'
         self.settings.setValue('port', self.port_combo.currentData())
         self.connect_btn.setText('Disconnect')
         self.connect_btn.setEnabled(True)
@@ -253,12 +319,47 @@ class MainWindow(QMainWindow):
 
     def on_disconnected(self):
         self.connected = False
+        self.conn_type = None
         self.connect_btn.setText('Connect')
         self.connect_btn.setEnabled(True)
         self.conn_label.setText('○ Not connected')
         self.conn_label.setStyleSheet('color: palette(mid);')
         self._set_views_connected(False)
         self.memory_view.set_busy(False)
+
+    def on_ble_connected(self, info):
+        self.connected = True
+        self.conn_type = 'ble'
+        self.settings.setValue('port', self.port_combo.currentData())
+        self.connect_btn.setText('Disconnect')
+        self.connect_btn.setEnabled(True)
+        self.conn_label.setText(f"● {info['name']}  (BLE — live readings only)")
+        self.conn_label.setStyleSheet('color: #57ab5a; font-weight: bold;')
+        # the BLE adapter only streams the live record: Live is the one
+        # usable page, so park the UI there and grey out the rest
+        self._set_views_connected(False)
+        self.live_view.set_connected(True)
+        self.sidebar.setCurrentRow(0)
+        self._set_other_pages_enabled(False)
+        self.statusBar().showMessage(f"Connected to {info['name']} over BLE", 5000)
+
+    def on_ble_disconnected(self):
+        self.connected = False
+        self.conn_type = None
+        self.connect_btn.setText('Connect')
+        self.connect_btn.setEnabled(True)
+        self.conn_label.setText('○ Not connected')
+        self.conn_label.setStyleSheet('color: palette(mid);')
+        self._set_views_connected(False)
+        self._set_other_pages_enabled(True)
+
+    def _set_other_pages_enabled(self, enabled):
+        for row in range(1, self.sidebar.count()):
+            item = self.sidebar.item(row)
+            if enabled:
+                item.setFlags(item.flags() | Qt.ItemIsEnabled)
+            else:
+                item.setFlags(item.flags() & ~Qt.ItemIsEnabled)
 
     def _set_views_connected(self, connected):
         self.live_view.set_connected(connected)
@@ -315,6 +416,7 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         self.settings.setValue('geometry', self.saveGeometry())
         self.worker.cancel_requested = True
+        self.ble.shutdown()
         self.req.close_port.emit()
         self.worker_thread.quit()
         self.worker_thread.wait(3000)

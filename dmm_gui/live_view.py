@@ -45,11 +45,21 @@ class LiveView(QWidget):
         self.value_label.setAlignment(Qt.AlignCenter)
         self.value_label.setToolTip('Live primary reading from the meter')
 
+        self.secondary_label = QLabel('')
+        sec_font = QFont()
+        sec_font.setPointSize(24)
+        self.secondary_label.setFont(sec_font)
+        self.secondary_label.setAlignment(Qt.AlignCenter)
+        self.secondary_label.setStyleSheet('color: palette(mid);')
+        self.secondary_label.setToolTip("The meter's secondary display (BLE connection)")
+        self.secondary_label.setVisible(False)
+
         self.function_label = QLabel('Not connected')
         self.function_label.setAlignment(Qt.AlignCenter)
         self.function_label.setStyleSheet('color: palette(mid); font-size: 14px;')
 
         layout.addWidget(self.value_label)
+        layout.addWidget(self.secondary_label)
         layout.addWidget(self.function_label)
 
         # --- plot ---
@@ -124,11 +134,20 @@ class LiveView(QWidget):
 
     def set_connected(self, connected):
         self.record_btn.setEnabled(connected)
-        if not connected:
+        if connected:
+            self._clear_plot()
+        else:
             if self.recording:
                 self.toggle_recording()
             self.value_label.setText('—')
+            self.secondary_label.setVisible(False)
             self.function_label.setText('Not connected')
+
+    def _clear_plot(self):
+        self.live_x.clear()
+        self.live_y.clear()
+        self.last_unit = ''
+        self.curve.setData([], [])
 
     # -- incoming data ---------------------------------------------------
 
@@ -138,6 +157,7 @@ class LiveView(QWidget):
             return
         value_str, unit = format_reading(reading)
         self.value_label.setText(f'{value_str} {unit}'.strip())
+        self.secondary_label.setVisible(False)
 
         parts = [data['prim_function'].replace('_', ' ')]
         if data.get('sec_function') and data['sec_function'] != 'NONE':
@@ -150,24 +170,49 @@ class LiveView(QWidget):
 
         value = reading['value']
         plot_value = math.nan if abs(value) >= OVERLOAD_VALUE else value
-        self.last_unit = reading['unit']
+        self._ingest(host_ts, value, plot_value, reading['unit'],
+                     data['prim_function'], reading['state'])
 
+    def on_ble_reading(self, host_ts, reading):
+        """Decoded ir3000FC record (fluke289_bt_decode.Reading)."""
+        if not reading.present:
+            return
+        self.value_label.setText(reading.display)
+        if reading.secondary is not None:
+            self.secondary_label.setText(reading.secondary.display)
+            self.secondary_label.setVisible(True)
+        else:
+            self.secondary_label.setVisible(False)
+
+        function = (reading.base_unit
+                    + (f' {reading.ac_dc}' if reading.ac_dc else ''))
+        parts = [function] + reading.status_flags + ['BLE']
+        self.function_label.setText('   •   '.join(parts))
+
+        if reading.overload or reading.value_si is None:
+            value, plot_value, state = OVERLOAD_VALUE, math.nan, 'OL'
+        else:
+            value = plot_value = reading.value_si
+            state = 'NORMAL'
+        self._ingest(host_ts, value, plot_value, reading.base_unit,
+                     function, state)
+
+    def _ingest(self, host_ts, value, plot_value, unit, function, state):
+        if unit != self.last_unit:
+            # new quantity: a mixed-unit trace is meaningless
+            self.live_x.clear()
+            self.live_y.clear()
+        self.last_unit = unit
+        self.live_x.append(host_ts)
+        self.live_y.append(plot_value)
         if self.recording:
-            self.record_rows.append((
-                host_ts, value, reading['unit'], data['prim_function'],
-                reading['state']))
-            self.live_x.append(host_ts)
-            self.live_y.append(plot_value)
+            self.record_rows.append((host_ts, value, unit, function, state))
             elapsed = host_ts - self.record_started
             self.status_label.setText(
                 f'Recording: {len(self.record_rows)} samples, {int(elapsed)} s')
             limit = self.duration_spin.value()
             if limit and elapsed >= limit * 60:
                 self.toggle_recording()
-        else:
-            self.live_x.append(host_ts)
-            self.live_y.append(plot_value)
-
         self._redraw()
 
     def _redraw(self):
