@@ -1,15 +1,18 @@
 # DMM Utility GUI for Fluke 289 Multimeter
 
-This project started from the forked `dmm_util` in this repo, but it's moved pretty far
-beyond that code, so I won't be keeping the fork in sync. I asked Claude Fable
-(Mythos with cyber/bio protections) to build a nice GUI around the DMM meter commands
-for the Fluke 287/289 Meter because there's no Fluke Connect Mac app. If you're
+<img src="images/fluke289dmmapp.png">
+
+This project is a full-fledged app that provides remote connectivity for the Fluke 289/287
+digital multimeter. It started as a fork from `dmm_util`, but it's moved pretty far beyond that
+command line interface. I wasn't happy with Fluke's software, so I asked Claude Fable 5
+to build a nice GUI around the DMM serial commands. Initially I was frustrated that there's
+no Mac app and that the iOS app only shows live data. But as I got into this project, I
+realized that there's a ton of functionality not exposed in the Fluke apps. If you're
 curious about how I started Claude on the work, read the prd.md file and see
 Claude's summary.md file of the work completed.
 
-This app goes way beyond Fluke Connect in functionality. It's engineer-centric,
-so no frills on the UI, but it exposes everything in the meter protocol we could
-find, including some undocumented stuff. There's even a live screen
+This app is engineer-centric, so no frills on the UI, but it exposes everything in the
+meter protocol we could find, including some undocumented stuff. There's even a live screen
 image view of the meter, thanks to some code I found on eevblog from user vsilves.
 See fluke-live.py for their original code. That file isn't used in the app and can
 be run standalone if you only want a screen capture view.
