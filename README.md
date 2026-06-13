@@ -25,7 +25,7 @@ on Windows, too. I did a quick cursory test on Windows 11 with the USB
 interface, and it seems fine. And as always with Windows,
 you'll need the proper [FTDI serial drivers](https://ftdichip.com/drivers/).
 These are already part of MacOS. I can't test BLE on Windows yet because
-I'm testing in a Parallels VM, and native BLE isn't supported without a Bluetooth dongle.
+I'm testing in a Parallels VM, and native BLE isn't supported without a Bluetooth dongle. (Will try to retest with a BT dongle.)
 
 ## Connection Methods
 
