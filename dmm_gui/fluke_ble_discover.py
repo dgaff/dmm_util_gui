@@ -34,6 +34,7 @@ Notes:
 import argparse
 import asyncio
 import sys
+import time
 from datetime import datetime
 
 try:
@@ -92,6 +93,46 @@ async def scan(timeout: float):
         if fluke:
             candidates.append(device)
     return candidates
+
+
+async def watch(duration: float):
+    """Continuously log every advertisement from the Fluke, with inter-arrival
+    gaps, so we can see the adapter's real advertising cadence (bursts, slow
+    intervals, or going silent) instead of the single end-of-window summary
+    that discover() gives.
+    """
+    log(f"Watching for {duration:.0f}s — every advertisement from a Fluke FC "
+        f"device is timestamped with the gap since its last sighting.")
+    log("(Ctrl-C to stop early.)")
+    last_seen = {}   # address -> monotonic time of previous advertisement
+    counts = {}      # address -> number of advertisements seen
+
+    def on_detect(device, adv):
+        if not looks_like_fluke(device, adv):
+            return
+        now = time.monotonic()
+        prev = last_seen.get(device.address)
+        gap = f"{now - prev:6.2f}s gap" if prev is not None else "  first seen"
+        last_seen[device.address] = now
+        counts[device.address] = counts.get(device.address, 0) + 1
+        log(f"  {device.address}  rssi={adv.rssi:>4}  "
+            f"name={device.name or adv.local_name!r}  {gap}")
+
+    scanner = BleakScanner(detection_callback=on_detect)
+    await scanner.start()
+    try:
+        await asyncio.sleep(duration)
+    finally:
+        await scanner.stop()
+
+    log("")
+    if not counts:
+        log("No Fluke advertisements seen at all during the watch window.")
+        return
+    for address, n in counts.items():
+        rate = n / duration
+        log(f"Summary: {address} advertised {n} time(s) in {duration:.0f}s "
+            f"(~{rate:.2f}/s).")
 
 
 async def explore(client: BleakClient):
@@ -179,6 +220,9 @@ async def main():
     global LOGFILE
     p = argparse.ArgumentParser(description="Fluke ir3000FC BLE discovery tool")
     p.add_argument("--scan-time", type=float, default=20.0, help="scan duration in seconds (default 10)")
+    p.add_argument("--watch", type=float, metavar="SECONDS",
+                   help="continuously log every advertisement from the adapter "
+                        "for SECONDS, with inter-arrival gaps, then exit")
     p.add_argument("--address", help="connect to this device address/UUID directly, skip auto-pick")
     p.add_argument("--connect", action="store_true", help="connect and explore GATT after scanning")
     p.add_argument("--listen", type=int, default=30, help="seconds to listen for notifications (default 30)")
@@ -191,6 +235,10 @@ async def main():
         LOGFILE = open(args.log, "a")
 
     cmd_bytes = args.cmd.encode().decode("unicode_escape").encode("latin-1")
+
+    if args.watch:
+        await watch(args.watch)
+        return
 
     target = None
     if args.address:
