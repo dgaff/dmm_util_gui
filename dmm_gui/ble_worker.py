@@ -21,7 +21,7 @@ from .fluke289_bt_decode import decode_record
 
 DEVICE_NAME = 'IR 3000 FC'
 LIVE_CHAR = 'b698290f-7562-11e2-b50d-00163e46f8fe'
-SCAN_SECONDS = 5.0
+SCAN_SECONDS = 10.0
 
 
 class BleWorker(QObject):
