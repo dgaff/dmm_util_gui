@@ -22,10 +22,11 @@ I assume the documented commands are the same with 287. I'm not sure about the
 undocumented ones, notability the delete memory options and the screen capture.
 I've tested this mostly on Mac, but since it uses the QT library, it does run
 on Windows, too. I did a quick cursory test on Windows 11 with the USB
-interface, and it seems fine. And as always with Windows,
+interface, and it seems fine. As always with Windows,
 you'll need the proper [FTDI serial drivers](https://ftdichip.com/drivers/).
-These are already part of MacOS. I can't test BLE on Windows yet because
-I'm testing in a Parallels VM, and native BLE isn't supported without a Bluetooth dongle. (Will try to retest with a BT dongle.)
+These drivers are already part of MacOS. I also did a quick verification that the
+BLE interface works on an x86 Windows machine. But Windows isn't my primary environment,
+and I imagine PCs use a variety of different Bluetooth chip sets, so YMMV.
 
 ## Connection Methods
 
@@ -76,12 +77,11 @@ When you start the app, you must pick the port to connect to. Assuming
 you have the USB connector, you'll see the FT232R UART on /dev as shown
 in the image below. On Windows, you'll see COM ports instead.
 
-If instead you want to find the BLE adapter, hit the refresh button and wait a few
-seconds. The scan has a 10s timeout, but if you have a ton of BLE devices in your house,
+If instead you want to find the BLE interface, hit the refresh button and wait ten
+seconds. If you have a ton of Bluetooth devices in your house,
 you may need to increase the scan time. The status bar will tell you if it finds
-the BLE adapter. Again, I've only tested this on Mac, so I'm not sure if it
-works on Windows. (Parallels doesn't pass BLE connections to the VM, so I have to
-buy a dongle to test BLE on Windows.)
+the BLE interface. Again, I've mostly tested this on Mac, but it worked on my
+cheap Acer Windows laptop, too.
 
 Once you've picked your connection, hit connect. If you're using the USB interface,
 all of the screens will be available to you. If you're using the BLE interface, you'll
