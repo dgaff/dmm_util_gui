@@ -156,6 +156,30 @@ This regenerates the app icon and produces `dist/DMM Utility.app`
 (ad-hoc signed); drag it to /Applications to install. The bundled app and
 the run-from-source version share the same saved settings.
 
+## Building a Windows .exe
+
+Build on Windows (PyInstaller can't cross-compile). Use a **64-bit x86**
+Python so the resulting `.exe` runs natively on x64 Windows and under
+emulation on ARM64 Windows — one 64-bit binary covers both.
+
+```powershell
+py -3 -m venv winvenv
+winvenv\Scripts\python.exe -m pip install -r requirements.txt pyinstaller   # once
+powershell -ExecutionPolicy Bypass -File packaging\build_app.ps1
+```
+
+This regenerates the app icon (`packaging\icon.ico`) and produces a single
+`dist\DMM Utility.exe`. First launch is a little slow — a one-file build
+unpacks to a temp dir before starting.
+
+Notes:
+
+- The `.exe` is unsigned, so SmartScreen will warn on first run
+  (More info → Run anyway). PyInstaller one-file builds also occasionally
+  trip antivirus false positives.
+- BLE on Windows uses bleak's WinRT backend; the build pulls it in with
+  `--collect-all bleak`.
+
 ## Testing
 
 (no meter needed — runs against a simulated Fluke 289):

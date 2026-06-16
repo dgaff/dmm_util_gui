@@ -1,4 +1,5 @@
 venv/
+winvenv/
 __pycache__/
 *.pyc
 .DS_Store
@@ -6,6 +7,7 @@ __pycache__/
 # PyInstaller build artifacts
 build/
 dist/
-packaging/*.spec
+*.spec
 packaging/icon.icns
+packaging/icon.ico
 packaging/icon.iconset/
