@@ -26,7 +26,7 @@ interface, and it seems fine. As always with Windows,
 you'll need the proper [FTDI serial drivers](https://ftdichip.com/drivers/).
 These drivers are already part of MacOS. I also did a quick verification that the
 BLE interface works on an x86 Windows machine. But Windows isn't my primary environment,
-and I imagine PCs use a variety of different Bluetooth chip sets, so YMMV.
+and I imagine PCs use a variety of different Bluetooth chipsets, so YMMV.
 
 ## Connection Methods
 
@@ -77,11 +77,12 @@ When you start the app, you must pick the port to connect to. Assuming
 you have the USB connector, you'll see the FT232R UART on /dev as shown
 in the image below. On Windows, you'll see COM ports instead.
 
-If instead you want to find the BLE interface, hit the refresh button and wait ten
-seconds. If you have a ton of Bluetooth devices in your house,
-you may need to increase the scan time. The status bar will tell you if it finds
-the BLE interface. Again, I've mostly tested this on Mac, but it worked on my
-cheap Acer Windows laptop, too.
+If instead you want to find the BLE interface, hit the refresh button and wait. I
+had to play around with this because the BLE interface is bursty in its
+broadcast messages, sometimes announcing a few times a second, and sometimes
+announcing several seconds later. Hopefully it will always catch it, but if
+it doesn't, hit the refresh again. And if it's out of range or turned off,
+refresh will wait 25 seconds before allowing you to try again.
 
 Once you've picked your connection, hit connect. If you're using the USB interface,
 all of the screens will be available to you. If you're using the BLE interface, you'll
