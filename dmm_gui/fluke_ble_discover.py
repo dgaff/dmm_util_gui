@@ -42,7 +42,8 @@ except ImportError:
     sys.exit("bleak is not installed. Run: pip install bleak")
 
 FLUKE_UUID_FRAGMENT = "7562-11e2-b50d-00163e46f8fe"  # Fluke FC vendor base
-NAME_HINTS = ("fluke", "fc", "289", "287", "ir3000")
+# NAME_HINTS = ("fluke", "fc", "289", "287", "ir3000")
+NAME_HINTS = ("IR 3000 FC")
 
 LOGFILE = None  # set in main() if --log
 
@@ -65,7 +66,7 @@ def fmt_bytes(data: bytes) -> str:
 
 def looks_like_fluke(device, adv) -> bool:
     name = (device.name or adv.local_name or "").lower()
-    if any(h in name for h in NAME_HINTS):
+    if name == NAME_HINTS[0].lower():
         return True
     for uuid in (adv.service_uuids or []):
         if FLUKE_UUID_FRAGMENT in uuid.lower():
@@ -177,7 +178,7 @@ async def listen_and_probe(client, notifiable, writable, listen_secs, probe, cmd
 async def main():
     global LOGFILE
     p = argparse.ArgumentParser(description="Fluke ir3000FC BLE discovery tool")
-    p.add_argument("--scan-time", type=float, default=10.0, help="scan duration in seconds (default 10)")
+    p.add_argument("--scan-time", type=float, default=20.0, help="scan duration in seconds (default 10)")
     p.add_argument("--address", help="connect to this device address/UUID directly, skip auto-pick")
     p.add_argument("--connect", action="store_true", help="connect and explore GATT after scanning")
     p.add_argument("--listen", type=int, default=30, help="seconds to listen for notifications (default 30)")
@@ -210,10 +211,27 @@ async def main():
             log(f"Multiple candidates; using the first: {target.address}")
 
     log(f"Connecting to {target.address} ({target.name}) ...")
-    async with BleakClient(target, timeout=20.0) as client:
-        log(f"Connected. MTU: {client.mtu_size}")
-        notifiable, writable = await explore(client)
-        await listen_and_probe(client, notifiable, writable, args.listen, args.probe, cmd_bytes)
+    # The IR 3000 FC is an open, no-bond device (CoreBluetooth connects with no
+    # pairing). On Windows/WinRT, GATT service discovery is flaky and the first
+    # connect often hangs until timeout (hbldh/bleak #1829 / #1442 / #1690), so
+    # retry a few times with a fresh client before giving up.
+    attempts = 3 if sys.platform == "win32" else 1
+    last_err = None
+    for attempt in range(attempts):
+        if attempt:
+            log(f"  retrying connect ({attempt + 1}/{attempts}) ...")
+        try:
+            async with BleakClient(target, timeout=20.0) as client:
+                log(f"Connected. MTU: {client.mtu_size}")
+                notifiable, writable = await explore(client)
+                await listen_and_probe(client, notifiable, writable,
+                                       args.listen, args.probe, cmd_bytes)
+            break
+        except Exception as e:
+            last_err = e
+            log(f"  connect attempt failed: {e}")
+    else:
+        sys.exit(f"All {attempts} connect attempt(s) failed: {last_err}")
     log("Disconnected. Done.")
 
 
