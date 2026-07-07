@@ -11,3 +11,5 @@ dist/
 packaging/icon.icns
 packaging/icon.ico
 packaging/icon.iconset/
+
+.recall/
