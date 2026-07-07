@@ -75,12 +75,19 @@ class LiveView(QWidget):
 
         controls.addWidget(QLabel('Sample every'))
         self.interval_spin = QDoubleSpinBox()
-        self.interval_spin.setRange(0.1, 3600.0)
+        self.interval_spin.setRange(0.0, 3600.0)
         self.interval_spin.setDecimals(1)
         self.interval_spin.setSuffix(' s')
-        self.interval_spin.setValue(float(self.settings.value('poll_interval', 1.0)))
+        # 0 (below the 0.1 minimum step) means "poll as fast as the meter
+        # answers" rather than on a fixed interval.
+        self.interval_spin.setSpecialValueText('as fast as possible')
+        self.interval_spin.setValue(float(self.settings.value('poll_interval', 0.0)))
+        self.interval_spin.setMinimumWidth(
+            self.interval_spin.fontMetrics().horizontalAdvance('as fast as possible') + 40)
         self.interval_spin.setToolTip('How often the app polls the meter for a live reading.\n'
-                                      'Also the sampling rate while recording.')
+                                      'Also the sampling rate while recording. Set to\n'
+                                      '"as fast as possible" (below 0.1 s) to poll the meter\n'
+                                      'back-to-back with no fixed interval.')
         self.interval_spin.valueChanged.connect(self._interval_changed)
         controls.addWidget(self.interval_spin)
 

@@ -136,7 +136,10 @@ class DmmWorker(QObject):
     @Slot(bool, float)
     def set_polling(self, enabled, interval_s):
         self._poll_enabled = enabled
-        self._poll_interval = max(0.1, interval_s)
+        # interval_s <= 0 means "as fast as possible": a 0 ms QTimer fires
+        # whenever the event loop is idle, so polls run back-to-back while
+        # still letting queued stop/close requests through between fires.
+        self._poll_interval = max(0.0, interval_s)
         self._ensure_timer()
         if enabled and self.dmm.is_connected:
             self._timer.start(int(self._poll_interval * 1000))
