@@ -14,6 +14,7 @@ from serial.tools import list_ports
 
 from PySide6.QtCore import QThread
 
+from . import __version__
 from .ble_worker import BleWorker, DEVICE_NAME as BLE_DEVICE_NAME
 from .console_view import ConsoleView
 from .live_view import LiveView
@@ -45,7 +46,7 @@ def known_ports():
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('DMM Utility — Fluke 287/289')
+        self.setWindowTitle(f'DMM Utility — Fluke 287/289  (v{__version__})')
         self.settings = QSettings('dmm_util_gui', 'DMM Utility')
         self.connected = False
         self.conn_type = None              # 'serial' | 'ble' while connected
