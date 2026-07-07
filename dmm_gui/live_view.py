@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QPushButton, QSpinBox, QVBoxLayout, QWidget,
 )
 
-from .plot_utils import set_axis_unit
+from .plot_utils import ReadingAxis, set_axis_unit
 from .protocol import OVERLOAD_VALUE, format_reading
 
 LIVE_BUFFER = 3600  # points kept on the rolling plot while not recording
@@ -31,6 +31,7 @@ class LiveView(QWidget):
         self.live_x = deque(maxlen=LIVE_BUFFER)
         self.live_y = deque(maxlen=LIVE_BUFFER)
         self.last_unit = ''
+        self.last_resolution = None
         self._build_ui()
 
     def _build_ui(self):
@@ -64,7 +65,8 @@ class LiveView(QWidget):
 
         # --- plot ---
         axis = pg.DateAxisItem(orientation='bottom')
-        self.plot = pg.PlotWidget(axisItems={'bottom': axis})
+        self.plot = pg.PlotWidget(axisItems={
+            'bottom': axis, 'left': ReadingAxis(orientation='left')})
         self.plot.showGrid(x=True, y=True, alpha=0.25)
         self.plot.setToolTip('Live readings. While recording, shows the recorded session.')
         self.curve = self.plot.plot(pen=pg.mkPen('#2f81f7', width=2))
@@ -154,6 +156,7 @@ class LiveView(QWidget):
         self.live_x.clear()
         self.live_y.clear()
         self.last_unit = ''
+        self.last_resolution = None
         self.curve.setData([], [])
 
     # -- incoming data ---------------------------------------------------
@@ -177,8 +180,11 @@ class LiveView(QWidget):
 
         value = reading['value']
         plot_value = math.nan if abs(value) >= OVERLOAD_VALUE else value
+        # Least-significant digit of the meter's display, in base SI units.
+        resolution = 10 ** (reading.get('unit_multiplier', 0)
+                            - max(0, reading.get('decimals', 0)))
         self._ingest(host_ts, value, plot_value, reading['unit'],
-                     data['prim_function'], reading['state'])
+                     data['prim_function'], reading['state'], resolution)
 
     def on_ble_reading(self, host_ts, reading):
         """Decoded ir3000FC record (fluke289_bt_decode.Reading)."""
@@ -201,15 +207,19 @@ class LiveView(QWidget):
         else:
             value = plot_value = reading.value_si
             state = 'NORMAL'
+        # Least-significant digit of the meter's display, in base SI units.
+        resolution = reading.prefix_factor * 10 ** -reading.decimals
         self._ingest(host_ts, value, plot_value, reading.base_unit,
-                     function, state)
+                     function, state, resolution)
 
-    def _ingest(self, host_ts, value, plot_value, unit, function, state):
+    def _ingest(self, host_ts, value, plot_value, unit, function, state,
+                resolution=None):
         if unit != self.last_unit:
             # new quantity: a mixed-unit trace is meaningless
             self.live_x.clear()
             self.live_y.clear()
         self.last_unit = unit
+        self.last_resolution = resolution
         self.live_x.append(host_ts)
         self.live_y.append(plot_value)
         if self.recording:
@@ -224,7 +234,7 @@ class LiveView(QWidget):
 
     def _redraw(self):
         self.curve.setData(list(self.live_x), list(self.live_y), connect='finite')
-        set_axis_unit(self.plot, self.last_unit)
+        set_axis_unit(self.plot, self.last_unit, self.last_resolution)
 
     # -- recording ---------------------------------------------------------
 
